@@ -88,7 +88,6 @@ jobs:
                   android:label="Desligar tela"
                   android:theme="@android:style/Theme.Material.Light">
 
-                  <!-- Activity invisível: abre, bloqueia a tela e fecha -->
                   <activity
                       android:name=".MainActivity"
                       android:exported="true"
@@ -107,3 +106,47 @@ jobs:
                       android:permission="android.permission.BIND_DEVICE_ADMIN">
                       <meta-data
                           android:name="android.app.device_admin"
+                          android:resource="@xml/device_admin" />
+                      <intent-filter>
+                          <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+                      </intent-filter>
+                  </receiver>
+              </application>
+          </manifest>
+          EOF
+          mkdir -p app/src/main/java/com/example/telaoff
+          cat > app/src/main/java/com/example/telaoff/MainActivity.kt << 'EOF'
+          package com.example.telaoff
+
+          import android.app.Activity
+          import android.app.admin.DeviceAdminReceiver
+          import android.app.admin.DevicePolicyManager
+          import android.content.ComponentName
+          import android.content.Intent
+          import android.os.Bundle
+
+          class AdminReceiver : DeviceAdminReceiver()
+
+          class MainActivity : Activity() {
+
+              private val REQ_ADMIN = 1
+
+              private val dpm by lazy { getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager }
+              private val admin by lazy { ComponentName(this, AdminReceiver::class.java) }
+
+              override fun onCreate(savedInstanceState: Bundle?) {
+                  super.onCreate(savedInstanceState)
+                  if (dpm.isAdminActive(admin)) {
+                      lockAndClose()
+                  } else {
+                      val i = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+                          .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
+                          .putExtra(
+                              DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                              "Necessario para desligar a tela ao tocar no icone."
+                          )
+                      startActivityForResult(i, REQ_ADMIN)
+                  }
+              }
+
+              @Deprecated("Deprecated in Java")
