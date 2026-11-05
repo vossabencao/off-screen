@@ -1,14 +1,14 @@
 name: Gerar APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   apk:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -18,148 +18,11 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Criar arquivos do app
-        run: |
-          cat > settings.gradle.kts << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "TelaOff"
-          include(":app")
-          EOF
-          cat > build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.application") version "8.5.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-          }
-          EOF
-          cat > gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.nonTransitiveRClass=true
-          EOF
-          mkdir -p app
-          cat > app/build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
+      - name: Compilar APK
+        run: gradle assembleDebug --no-daemon
 
-          android {
-              namespace = "com.example.telaoff"
-              compileSdk = 34
-
-              defaultConfig {
-                  applicationId = "com.example.telaoff"
-                  minSdk = 24
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
-          mkdir -p app/src/main
-          cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <application
-                  android:allowBackup="false"
-                  android:icon="@mipmap/ic_tela_off"
-                  android:roundIcon="@mipmap/ic_tela_off"
-                  android:label="Desligar tela"
-                  android:theme="@android:style/Theme.Material.Light">
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:excludeFromRecents="true"
-                      android:noHistory="true"
-                      android:theme="@android:style/Theme.Translucent.NoTitleBar">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-
-                  <receiver
-                      android:name=".AdminReceiver"
-                      android:exported="true"
-                      android:permission="android.permission.BIND_DEVICE_ADMIN">
-                      <meta-data
-                          android:name="android.app.device_admin"
-                          android:resource="@xml/device_admin" />
-                      <intent-filter>
-                          <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-                      </intent-filter>
-                  </receiver>
-              </application>
-          </manifest>
-          EOF
-          mkdir -p app/src/main/java/com/example/telaoff
-          cat > app/src/main/java/com/example/telaoff/MainActivity.kt << 'EOF'
-          package com.example.telaoff
-
-          import android.app.Activity
-          import android.app.admin.DeviceAdminReceiver
-          import android.app.admin.DevicePolicyManager
-          import android.content.ComponentName
-          import android.content.Intent
-          import android.os.Bundle
-
-          class AdminReceiver : DeviceAdminReceiver()
-
-          class MainActivity : Activity() {
-
-              private val REQ_ADMIN = 1
-
-              private val dpm by lazy { getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager }
-              private val admin by lazy { ComponentName(this, AdminReceiver::class.java) }
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  if (dpm.isAdminActive(admin)) {
-                      lockAndClose()
-                  } else {
-                      // Primeira vez: pede permissao de administrador
-                      val i = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                          .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                          .putExtra(
-                              DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                              "Necessario para desligar a tela ao tocar no icone."
-                          )
-                      startActivityForResult(i, REQ_ADMIN)
-                  }
-              }
-
-              @Deprecated("Deprecated in Java")
-              override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-                  super.onActivityResult(requestCode, resultCode, data)
-                  if (requestCode == REQ_ADMIN && dpm.isAdminActive(admin)) lockAndClose() else finish()
-              }
-
-              private fun lockAndClose() {
-                  dpm.lockNow()
-                  finish()
-              }
-          }
-          EOF
-          mkdir -p app/src/main/res/xml
-          cat >
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DesligarTela-apk
+          path: "**/*.apk"
+          if-no-files-found: error
