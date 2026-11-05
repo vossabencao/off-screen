@@ -1,4 +1,4 @@
-name: Build APK
+name: Gerar APK
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  apk:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/setup-java@v4
@@ -18,135 +18,6 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Gerar projeto
+      - name: Criar arquivos do app
         run: |
-          cat > settings.gradle.kts << 'EOF'
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "TelaOff"
-          include(":app")
-          EOF
-          cat > build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.application") version "8.5.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-          }
-          EOF
-          cat > gradle.properties << 'EOF'
-          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
-          android.nonTransitiveRClass=true
-          EOF
-          mkdir -p app
-          cat > app/build.gradle.kts << 'EOF'
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
-
-          android {
-              namespace = "com.example.telaoff"
-              compileSdk = 34
-
-              defaultConfig {
-                  applicationId = "com.example.telaoff"
-                  minSdk = 24
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
-              }
-
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
-              }
-              kotlinOptions {
-                  jvmTarget = "17"
-              }
-          }
-          EOF
-          mkdir -p app/src/main
-          cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-              <application
-                  android:allowBackup="false"
-                  android:icon="@mipmap/ic_tela_off"
-                  android:roundIcon="@mipmap/ic_tela_off"
-                  android:label="Desligar tela"
-                  android:theme="@android:style/Theme.Material.Light">
-
-                  <activity
-                      android:name=".MainActivity"
-                      android:exported="true"
-                      android:excludeFromRecents="true"
-                      android:noHistory="true"
-                      android:theme="@android:style/Theme.Translucent.NoTitleBar">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
-
-                  <receiver
-                      android:name=".AdminReceiver"
-                      android:exported="true"
-                      android:permission="android.permission.BIND_DEVICE_ADMIN">
-                      <meta-data
-                          android:name="android.app.device_admin"
-                          android:resource="@xml/device_admin" />
-                      <intent-filter>
-                          <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-                      </intent-filter>
-                  </receiver>
-              </application>
-          </manifest>
-          EOF
-          mkdir -p app/src/main/java/com/example/telaoff
-          cat > app/src/main/java/com/example/telaoff/MainActivity.kt << 'EOF'
-          package com.example.telaoff
-
-          import android.app.Activity
-          import android.app.admin.DeviceAdminReceiver
-          import android.app.admin.DevicePolicyManager
-          import android.content.ComponentName
-          import android.content.Intent
-          import android.os.Bundle
-
-          class AdminReceiver : DeviceAdminReceiver()
-
-          class MainActivity : Activity() {
-
-              private val REQ_ADMIN = 1
-
-              private val dpm by lazy { getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager }
-              private val admin by lazy { ComponentName(this, AdminReceiver::class.java) }
-
-              override fun onCreate(savedInstanceState: Bundle?) {
-                  super.onCreate(savedInstanceState)
-                  if (dpm.isAdminActive(admin)) {
-                      lockAndClose()
-                  } else {
-                      val i = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                          .putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, admin)
-                          .putExtra(
-                              DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                              "Necessario para desligar a tela ao tocar no icone."
-                          )
-                      startActivityForResult(i, REQ_ADMIN)
-                  }
-              }
-
-              @Deprecated("Deprecated in Java")
+          echo "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
